@@ -578,6 +578,35 @@
     }
   };
 
+  // Плейсхолдер поиска: на узком экране длинная подсказка не читается —
+  // по макету (Figma 803:2701) она заменяется одним словом «Поиск».
+  // Текст плейсхолдера атрибутный, из CSS его не подменить, поэтому здесь.
+  // Порог 480 — по ширине строки поиска; в мобильном режиме панель идёт
+  // от края до края, так что ширина строки равна ширине окна.
+  Drupal.behaviors.technexSearchPlaceholder = {
+    attach: function (context) {
+      once('technexSearchPlaceholder', '#searchInput', context).forEach(function (input) {
+        var full = input.getAttribute('placeholder') || '';
+        var SHORT = 'Поиск';
+        var NARROW = 480;
+
+        function sync() {
+          var want = window.innerWidth < NARROW ? SHORT : full;
+          if (input.getAttribute('placeholder') !== want) {
+            input.setAttribute('placeholder', want);
+          }
+        }
+
+        sync();
+        var timer = null;
+        window.addEventListener('resize', function () {
+          if (timer) clearTimeout(timer);
+          timer = setTimeout(sync, 120);
+        });
+      });
+    }
+  };
+
   Drupal.behaviors.searchAutofill = {
     attach: function (context, settings) {
       // Use once() to ensure this only runs once per element

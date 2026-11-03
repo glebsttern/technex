@@ -944,3 +944,105 @@ body:not(.is-mobile) .cats #block-technex-kategoriiglavnaya .block__content > di
   body.is-mobile #block-technex-karuselglavnaya .banner--crane { padding-left: 16px; padding-right: 16px; }
   body.is-mobile .banner--crane .btn { padding-left: 12px; padding-right: 12px; }
 }
+
+
+/* ===========================================================
+   FIX-2 2026-11-03 · поиск, новости, выпадайки, мелочи
+   =========================================================== */
+
+/* ── 1. Описание баннера на 899–720 — одна строка ──────────
+   По макету («899» 796:2345 и «720» 796:2356) описание — только
+   «Скидки. Монтаж. Гарантия». Первая строка убрана в span, чтобы
+   прятать её одним правилом и так же одним вернуть. На десктопе
+   (кадр 1200) обе строки на месте. */
+@media (max-width: 899px) {
+  body.is-mobile .banner--radio .banner__text-lead { display: none; }
+}
+
+/* ── 2. Поиск ───────────────────────────────────────────────
+   Макет: Figma «Technex» — 318:664 (обычный), 329:829 (ховер),
+   480:15983 (активный), 803:2701 (узкий обычный),
+   755:5083 (узкий активный).
+
+   2.1. Кнопка «Найти» показывалась всегда.
+   `.searchbar__submit { display: none }` (специфичность 0-1-0) из
+   style.css перебивалось правилом `button[type="submit"]
+   { display: inline-flex }` из forms.css: у него 0-1-1, и порядок
+   подключения тут ни при чём — выигрывает специфичность.
+   Поэтому в обычном состоянии кнопка занимала 160 px на десктопе
+   и 152 из 375 на мобиле: под поле оставалось 159 px — это и есть
+   пункты 09–10 бэклога («поле уже кнопки, видно ~5 символов»).
+   По макету в обычном и ховерном состоянии кнопки нет вовсе.
+   Поднимаем специфичность до 0-2-0. */
+.searchbar .searchbar__submit { display: none; }
+.searchbar:focus-within .searchbar__submit,
+.searchbar.is-filled .searchbar__submit { display: inline-flex; }
+
+/* 2.2. Плейсхолдер по макету — сплошной #888 без приглушения.
+   `opacity: 0.5` давал примерно #c3c3c3. */
+.searchbar__field input::placeholder { opacity: 1; }
+.searchbar:focus-within .searchbar__field input::placeholder { opacity: 1; }
+
+/* 2.3. Узкий режим (<480): у активного состояния кнопка-иконка,
+   а лупа из поля уходит — макет 755:5083. Сам плейсхолдер
+   подменяет JS (technexSearchPlaceholder), из CSS текст атрибута
+   не поменять. */
+@media (max-width: 479px) {
+  /* лупы в поле нет в обоих состояниях: и обычная, и «активная» копия.
+     Правила показа `--active` имеют 0-3-0, поэтому и здесь нужно 0-3-0 */
+  .searchbar:focus-within .searchbar__icon,
+  .searchbar.is-filled .searchbar__icon,
+  .searchbar:focus-within .searchbar__icon--active,
+  .searchbar.is-filled .searchbar__icon--active { display: none; }
+
+  /* 0-2-0: `button[type="submit"]` из forms.css (0-1-1) задаёт фон
+     сокращённой записью и сбрасывает background-image обратно в none */
+  .searchbar .searchbar__submit {
+    width: 56px;
+    height: 56px;
+    padding: 0;
+    background-image: url("../img/icon-search-white.svg");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 32px 32px;
+  }
+  .searchbar .searchbar__submit .btn__label { display: none; }
+}
+
+/* ── 4. Новости на вебе: белая подложка, крупнее текст ──────
+   Было: карточки на `var(--grey-2)` — это ровно цвет фона страницы,
+   поэтому блок с ней сливался, а подписи шли 14/20.
+   Стало: блок на белой подложке со скруглением, как блок направлений
+   и «5 шагов»; карточки прозрачные, серый остаётся только на ховере.
+   Кегль подписей +60 %: 14/20 → 22/32. */
+body:not(.is-mobile) .news {
+  padding: 24px;
+  background: var(--white);
+  border-radius: var(--radius-lg);
+}
+body:not(.is-mobile) .news__card {
+  background: transparent;
+  border-radius: var(--radius-md);
+}
+body:not(.is-mobile) .news__card p {
+  font-size: 22px;
+  line-height: 32px;
+}
+
+/* ── 5. Выпадайки меню на вебе: кегль +50 % ────────────────
+   14/20 → 21/30. Ширину списка поднимаем соразмерно, иначе длинные
+   пункты начинают рубиться. */
+body:not(.is-mobile) .dropdown { width: 420px; }
+body:not(.is-mobile) .dropdown a {
+  font-size: 21px;
+  line-height: 30px;
+}
+
+/* ── 6. Закреплённая шапка со спрятанной полосой не подрезана ─
+   В двухполосных режимах у шапки снят нижний padding (правка от
+   03.11.2026): его роль играла полоса контактов. После того как
+   свёртывание полосы заработало по-настоящему, первая строка
+   осталась прижатой к нижней границе — логотип и кнопка «Меню»
+   упирались в неё. Возвращаем отступ на время, пока полоса спрятана. */
+.mainmenu.is-mid.is-contacts-hidden,
+.mainmenu.is-burger.is-contacts-hidden { padding-bottom: 12px; }

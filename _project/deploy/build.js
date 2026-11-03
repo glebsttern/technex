@@ -10,7 +10,9 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..', '..');
-const OUT = path.resolve(ROOT, process.argv[2] || '_site');
+// флаги (--cloudflare) отсеиваем: первый позиционный аргумент — папка вывода
+const args = process.argv.slice(2).filter(a => !a.startsWith('--'));
+const OUT = path.resolve(ROOT, args[0] || '_site');
 const SKIP = new Set(['_project', '.git', '.github', '.gitattributes', '.gitignore', 'CLAUDE.md', 'netlify.toml', path.basename(OUT)]);
 
 let files = 0;
@@ -63,10 +65,16 @@ const header = [
 fs.writeFileSync(path.join(OUT, '_redirects'), header + rules.join('\n') + '\n');
 files++;
 
-const fnFrom = path.join(__dirname, 'functions');
-const fnTo = path.join(OUT, 'functions');
-fs.mkdirSync(fnTo, { recursive: true });
-for (const f of fs.readdirSync(fnFrom)) { fs.copyFileSync(path.join(fnFrom, f), path.join(fnTo, f)); files++; }
+// Функция для Cloudflare Pages кладётся только по флагу: на Netlify она не
+// нужна (там работают правила из _redirects) и лежала бы в публикации мёртвым
+// файлом, открытым по прямой ссылке.
+//   node _project/deploy/build.js --cloudflare
+if (process.argv.includes('--cloudflare')) {
+  const fnFrom = path.join(__dirname, 'functions');
+  const fnTo = path.join(OUT, 'functions');
+  fs.mkdirSync(fnTo, { recursive: true });
+  for (const f of fs.readdirSync(fnFrom)) { fs.copyFileSync(path.join(fnFrom, f), path.join(fnTo, f)); files++; }
+}
 
 console.log('Собрано в ' + OUT + ': ' + files + ' файлов');
 console.log('Правил в _redirects: ' + rules.length);

@@ -34,7 +34,9 @@ for (const name of ['robots.txt', '_headers']) {
 }
 
 // _redirects — то же, что functions/_middleware.js, но для Netlify: там страницы
-// с query-строкой отдаются правилом, а не функцией. Правила собираются из самих
+// с query-строкой отдаются правилом, а не функцией. Восклицательный знак после 200 —
+// это force: без него Netlify не применяет правило, если по этому адресу уже лежит
+// файл (а он лежит: /novosti.html существует). Правила собираются из самих
 // файлов `__q__`, чтобы список не расходился с зеркалом.
 const rules = [];
 (function scan(dir) {
@@ -48,8 +50,8 @@ const rules = [];
     const query = parts[1].slice(0, -'.html'.length).split('__').join(' ');
     const isIndex = base.endsWith('/index');
     const from = isIndex ? '/' + base.slice(0, -'/index'.length) : '/' + base + '.html';
-    rules.push(from + ' ' + query + ' /' + rel + ' 200');
-    if (isIndex) rules.push(from + '/ ' + query + ' /' + rel + ' 200');
+    rules.push(from + ' ' + query + ' /' + rel + ' 200!');
+    if (isIndex) rules.push(from + '/ ' + query + ' /' + rel + ' 200!');
   }
 })(OUT);
 rules.sort();

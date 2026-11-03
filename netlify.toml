@@ -13,3 +13,9 @@
 # из _redirects. Папку с функцией для Cloudflare Pages Netlify не трогает.
 [build.processing]
   skip_processing = true
+
+# Netlify по умолчанию переписывает разметку: вырезает .html из ссылок
+# («pretty urls») и меняет кавычки. Для зеркала это недопустимо — отданная
+# страница должна совпадать с файлом в репозитории байт в байт.
+[build.processing.html]
+  pretty_urls = false

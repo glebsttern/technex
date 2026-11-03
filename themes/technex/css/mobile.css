@@ -734,3 +734,213 @@ body.is-mobile .mainmenu.is-pinned { width: 100%; }
   }
   body.is-mobile .banner--radio .btn { padding-left: 12px; padding-right: 12px; }
 }
+
+
+/* ===========================================================
+   FIX 2026-11-03 · правки по просмотру: слои, шапка, ховеры
+   Пункты 1–6 и 8 из замечаний. Крановые баннеры — отдельным
+   блоком ниже.
+   =========================================================== */
+
+/* ── 1. Пульт баннера на переднем плане ─────────────────────
+   Было: пульт выходит за верх карточки на 159 px и уезжал под блок
+   направлений. Причина не в z-index пульта, а в контекстах наложения:
+   `.hero__inner` имел z-index 60, `.panel` — 2. Контекст рисуется
+   целиком, поэтому всё, что внутри хиро, оказывалось выше баннера,
+   какой бы z-index пульту ни ставили.
+   Стало: контексты сняты. Порядок теперь определяется деревом —
+   баннер лежит в разметке ПОСЛЕ панели, значит рисуется поверх неё,
+   и пульт вместе с ним. Закреплённая шапка (z-index 40) и затемнение
+   меню (внутри `.mainmenu`, z-index 5) по-прежнему выше: их значения
+   теперь считаются от страницы, а не от снятого контекста.
+   Проверено: шапка остаётся поверх подвала, ради чего z-index 60
+   и ставился 03.11.2026. */
+.hero__inner { z-index: auto; }
+.panel { z-index: auto; }
+.panel.is-pinned-host { z-index: auto; }
+
+/* ── 2. Низ блока направлений скруглён ──────────────────────
+   У `.panel` скругление 24 px есть, но блок направлений внутри —
+   белый прямоугольник, который доходит до её нижнего края и
+   закрывал скругление собой. Скругляем его собственные нижние углы.
+   Только там, где панель не во всю ширину: в мобильном режиме она
+   идёт от края до края и к ней снизу прилипает баннер. */
+body:not(.is-mobile) .cats #block-technex-kategoriiglavnaya .block__content > div {
+  border-bottom-left-radius: var(--radius-lg);
+  border-bottom-right-radius: var(--radius-lg);
+}
+
+/* ── 3. В промежуточном режиме меню прижато вправо ──────────
+   Было: пункты висели сразу за логотипом, справа оставалось 181 px
+   пустоты (замер на 1000: меню 210..887 при правом крае поля 968).
+   Причина глубже, чем кажется: флекс-элементом шапки является не `.nav`,
+   а безымянная обёртка Drupal между ними —
+   `.mainmenu > div > nav#block-technex-main-menu > nav.nav`.
+   Поэтому ни `flex: 1 1 0`, ни `margin-left: auto`, навешенные на `.nav`,
+   на раскладку строки не влияли вообще: обёртка остаётся по содержимому,
+   а всё свободное место забирал единственный работающий авто-отступ —
+   у `.mainmenu__actions`, который в этом режиме пустой (кнопка «Меню»
+   показывается только в бургере).
+   Стало: авто-отступ переносим на саму обёртку — она уезжает вправо
+   вместе с меню, а у `.mainmenu__actions` его убираем, чтобы они не
+   делили место пополам. В бургере отступ у `.mainmenu__actions`
+   остаётся: там он держит кнопку «Меню» у правого края. */
+.mainmenu.is-mid > div:not([class]) { margin-left: auto; }
+.mainmenu.is-mid .nav { margin-left: 0; justify-content: flex-end; }
+/* пустой блок кнопки «Меню» убираем совсем: сам он нулевой ширины, но
+   column-gap шапки оставлял от него 16 px справа от последнего пункта */
+.mainmenu.is-mid .mainmenu__actions { display: none; }
+
+/* ── 4. Спрятанная полоса контактов больше не занимает место ─
+   Было: при листании вниз полоса становилась прозрачной, но высоту
+   сохраняла — под шапкой оставалось 48 px пустоты (замер на 1100:
+   шапка 0..101, полоса 52..100 при opacity 0).
+   Причина: правило свёртывания `.mainmenu.is-contacts-hidden
+   .header-contacts { height: 0 }` (специфичность 0-2-1) перебивалось
+   более поздним `.mainmenu.is-mid .header-contacts { height: 48px }`
+   из блока CONTACTS — та же специфичность, но ниже по файлу.
+   Стало: у свёртывания два класса на самой шапке, 0-3-1, оно
+   выигрывает независимо от порядка. */
+.mainmenu.is-mid.is-contacts-hidden .header-contacts,
+.mainmenu.is-burger.is-contacts-hidden .header-contacts {
+  height: 0;
+  margin-top: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  opacity: 0;
+  border-top-width: 0;
+}
+
+/* ── 5. Номер больше не ложится на строку поиска ────────────
+   Распорка под закреплённой шапкой измерялась, пока переход полосы
+   контактов ещё проигрывался: на 375 выходило 100 px вместо 112.
+   Шапка оказывалась на 12 px выше распорки и наезжала на поиск.
+   JS на время замера вешает `is-measuring` — здесь снимаем переходы,
+   чтобы замер попадал в конечное состояние, а не в промежуточное. */
+.mainmenu.is-measuring .header-contacts { transition: none; }
+
+/* ── 6. Тень у закреплённой шапки убрана ───────────────────
+   Отменяет решение от 03.11.2026 (пункт 08 бэклога — «липкая шапка
+   без отбивки, добавить тень»). По просьбе заказчика тени нет;
+   шапку от контента по-прежнему отделяет нижний бордер. */
+.mainmenu.is-pinned { box-shadow: none; }
+
+/* ── 8. Ховеры мессенджеров — фирменными цветами ───────────
+   Значок — цельный SVG (чёрный круг + белый глиф), перекрасить его
+   из CSS нельзя: маска убила бы глиф вместе с кругом. Поэтому рядом
+   лежат три копии, где у круга (`<path id="Oval">`) залит фирменный
+   цвет, остальное не тронуто. Глушим прежнее приглушение прозрачностью. */
+.header-messenger:hover { opacity: 1; }
+.header-messenger--telegram:hover { background-image: url("../img/fig-telegram-hover.svg"); }
+.header-messenger--whatsapp:hover { background-image: url("../img/fig-whatsapp-hover.svg"); }
+.header-messenger--viber:hover { background-image: url("../img/fig-viber-hover.svg"); }
+
+
+/* ===========================================================
+   BANNER-CRANE 2026-11-03 · крановые баннеры, два узких режима
+   Макет: Figma «Technex», секция 802:2426 — кадры « Normal» 1202
+   (800:2393), 900 (800:2394), 720 (802:2414) и пара
+   «Баннер / КРАН ОПОРНЫЙ» + «КРАН ПОДВЕСНОЙ» (802:2435).
+
+   1. ≤899. Карточка остаётся серой и скруглённой, но содержимое
+      перестраивается: картинка во всю ширину сверху, под ней кнопка
+      во всю ширину, и заголовок переезжает на кнопку — ровно как
+      у радиоуправления в узком режиме. Отдельного заголовка нет.
+      Стрелки листалки остаются.
+   2. ≤719. Выводятся сразу оба крана, друг под другом, без скруглений,
+      на белом, разделённые бордером — как баннер радиоуправления.
+      Стрелки не нужны: листать нечего.
+
+   Кнопки во всех узких режимах одинаковые: во всю ширину карточки,
+   чёрные, скругление 8, подпись акцидентным Onder по центру.
+   =========================================================== */
+@media (max-width: 899px) {
+  #block-technex-karuselglavnaya .banner--crane {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 24px;
+    min-height: 0;
+    padding: 40px;
+  }
+  /* картинка во всю ширину сверху; пропорция слота из макета
+     (820×268 на 900 и 640×209 на 720 — это 1129/369).
+     Наши png сняты с запасом по вертикали (1280×672 и 1280×705),
+     поэтому cover: он обрезает пустоту сверху и снизу так же,
+     как это сделано в макете, и кран занимает всю ширину. */
+  .banner--crane .banner__img {
+    position: static;
+    order: 1;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    aspect-ratio: 1129 / 369;
+    object-fit: cover;
+    transform: none;
+    margin: 0;
+  }
+  .banner--crane .banner__content {
+    order: 2;
+    width: 100%;
+    max-width: 100%;
+    padding-top: 0;
+    margin: 0;
+  }
+  /* заголовок уходит на кнопку */
+  .banner--crane .banner__content > .h3 { display: none; }
+  .banner--crane .btn {
+    display: flex;
+    width: 100%;
+    box-sizing: border-box;
+    text-align: center;
+  }
+  .banner--crane .btn .btn__label { display: none; }
+  .banner--crane .btn .btn__label--narrow { display: block; }
+  /* наведение мышью меняло фон карточки и цвет скрытого заголовка —
+     от второго теперь толку нет, первое оставляем */
+  .banner--crane:hover .banner__img { transform: none; }
+}
+
+@media (max-width: 719px) {
+  /* оба крана сразу: дорожка листалки превращается в колонку */
+  body.is-mobile .cranes {
+    margin: 0 -12px;
+    padding-bottom: 0;
+  }
+  body.is-mobile #block-technex-karuselglavnaya .block__content > div {
+    margin-top: 0;
+    padding-bottom: 0;
+  }
+  body.is-mobile .cranes__viewport { border-radius: 0; }
+  body.is-mobile .cranes__track {
+    display: flex;
+    flex-direction: column;
+    /* transform пишет JS инлайном (technexCranes.render), и без important
+       его не перебить: иначе вторая карточка остаётся уведённой за край */
+    transform: none !important;
+  }
+  /* листать нечего — стрелки убираем */
+  body.is-mobile .cranes__btn { display: none; }
+
+  body.is-mobile #block-technex-karuselglavnaya .banner--crane {
+    gap: 16px;
+    padding: 32px 24px;
+    background: var(--white);
+    border-radius: 0;
+    border-bottom: 1px solid var(--grey-2);
+  }
+  /* пропорция слота из макета: 671×300 при карточке 719.
+     Фиксированные 300 px не годятся — на 375 под краном остаётся
+     полполосы пустоты, потому что ширина карточки вдвое меньше. */
+  body.is-mobile .banner--crane .banner__img {
+    aspect-ratio: 671 / 300;
+    object-fit: contain;
+  }
+  /* кнопка — как у радиоуправления в этом режиме */
+  body.is-mobile .banner--crane .btn { font-size: 9px; }
+}
+
+@media (max-width: 400px) {
+  body.is-mobile #block-technex-karuselglavnaya .banner--crane { padding-left: 16px; padding-right: 16px; }
+  body.is-mobile .banner--crane .btn { padding-left: 12px; padding-right: 12px; }
+}

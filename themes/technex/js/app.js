@@ -383,7 +383,17 @@
           var wasHidden = menu.classList.contains('is-contacts-hidden');
           if (wasPinned) { menu.classList.remove('is-pinned'); spacer.style.height = '0px'; }
           menu.classList.remove('is-contacts-hidden');
+          // Полоса контактов анимирует высоту и верхнюю отбивку. measurePin()
+          // вызывается сразу после fit(), то есть в момент, когда переход из
+          // однополосного режима в двухполосный ещё проигрывается, и замер
+          // ловит промежуточное значение: на 375 выходило 100 px вместо 112
+          // (не досчитывались 12 px отбивки), распорка оказывалась ниже шапки
+          // и номер ложился на строку поиска. На время замера переходы снимаем.
+          menu.classList.add('is-measuring');
+          /* eslint-disable-next-line no-unused-expressions */
+          menu.offsetHeight;   // принудительный рефлоу: стиль должен примениться до замера
           var rect = menu.getBoundingClientRect();
+          menu.classList.remove('is-measuring');
           pinTop = rect.top + (window.pageYOffset || 0);
           pinHeight = rect.height;
           if (wasHidden) menu.classList.add('is-contacts-hidden');

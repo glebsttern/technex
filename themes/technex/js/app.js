@@ -578,6 +578,90 @@
     }
   };
 
+  // Номер телефона в полосе контактов набран акцидентным Onder. Он в 2–3 раза
+  // шире основной гарнитуры и на телефонах рядом со значками мессенджеров не
+  // помещается ни в одном читаемом кегле (замер: на 375 свободно 229 px, а
+  // номер в Onder занимает 243 px уже при 10 px). Поэтому кегль подбирается
+  // по месту, а не задаётся ступенями в CSS: ступени пришлось бы заводить на
+  // каждую ширину, и любая правка отступов их ломала бы.
+  // Два ограничения, берём меньшее:
+  //   1) номер влезает в свободную ширину полосы;
+  //   2) высота цифры не выше значка мессенджера (требование заказчика).
+  // Ширину и высоту глифа меряем через canvas: measureText даёт реальные
+  // границы начертания, а не строчный бокс, и ширина текста линейна по кеглю,
+  // поэтому достаточно одного замера на 100 px вместо двоичного поиска.
+  Drupal.behaviors.technexFitPhone = {
+    attach: function (context) {
+      once('technexFitPhone', '.mainmenu', context).forEach(function (menu) {
+        var phone = menu.querySelector('.header-phone');
+        var bar = menu.querySelector('.header-contacts');
+        var icons = menu.querySelector('.header-messengers');
+        if (!phone || !bar || !icons) return;
+
+        var MIN_PX = 7;        // ниже номер перестаёт быть номером
+        var canvas = document.createElement('canvas');
+        var ctx = canvas.getContext && canvas.getContext('2d');
+        if (!ctx) return;
+
+        function fit() {
+          // в однополосном режиме номер стоит в правой колонке и живёт по CSS
+          var twoRows = menu.classList.contains('is-mid') || menu.classList.contains('is-burger');
+          phone.style.fontSize = '';
+          phone.style.lineHeight = '';
+          if (!twoRows) return;
+
+          var cs = getComputedStyle(bar);
+          var avail = bar.clientWidth
+            - (parseFloat(cs.paddingLeft) || 0)
+            - (parseFloat(cs.paddingRight) || 0)
+            - icons.getBoundingClientRect().width
+            - (parseFloat(cs.columnGap) || 0);
+          if (!(avail > 1)) return;
+
+          var ps = getComputedStyle(phone);
+          var text = (phone.textContent || '').trim();
+          if (!text) return;
+          ctx.font = ps.fontStyle + ' ' + ps.fontWeight + ' 100px ' + ps.fontFamily;
+
+          var width100 = ctx.measureText(text).width;
+          if (!width100) return;
+          var byWidth = (avail * 100) / width100;
+
+          var m = ctx.measureText('0');
+          var digit100 = (m.actualBoundingBoxAscent || 0) + (m.actualBoundingBoxDescent || 0);
+          var icon = icons.querySelector('.header-messenger');
+          var iconH = icon ? icon.getBoundingClientRect().height : 22;
+          var byIcon = digit100 ? (iconH * 100) / digit100 : byWidth;
+
+          var size = Math.max(MIN_PX, Math.floor(Math.min(byWidth, byIcon)));
+          phone.style.fontSize = size + 'px';
+          // строку держим по высоте значка, чтобы полоса не меняла высоту
+          phone.style.lineHeight = Math.round(iconH) + 'px';
+        }
+
+        fit();
+        if (document.fonts && document.fonts.ready) {
+          document.fonts.ready.then(fit).catch(function () {});
+          if (document.fonts.load) {
+            document.fonts.load('1em Onder').then(fit).catch(function () {});
+          }
+        }
+        window.addEventListener('load', fit);
+        // ширина полосы меняется и при resize, и при смене режима шапки —
+        // наблюдатель ловит оба случая одним способом
+        if (window.ResizeObserver) {
+          new ResizeObserver(fit).observe(bar);
+        } else {
+          var t = null;
+          window.addEventListener('resize', function () {
+            if (t) clearTimeout(t);
+            t = setTimeout(fit, 120);
+          });
+        }
+      });
+    }
+  };
+
   // Плейсхолдер поиска: на узком экране длинная подсказка не читается —
   // по макету (Figma 803:2701) она заменяется одним словом «Поиск».
   // Текст плейсхолдера атрибутный, из CSS его не подменить, поэтому здесь.
@@ -680,6 +764,7 @@
         var MIN_RATIO = 0.7;   // ниже этой доли от исходного кегля не опускаемся
         var MIN_PX = 10;
         var TOLERANCE = 1;     // запас на округление, px
+        var SWAP_CLASS = 'is-fit-body-face';   // стиль класса — в mobile.css
 
         var range = document.createRange();
 
@@ -707,39 +792,63 @@
           return max;
         }
 
+        // Наибольший кегль из [floorPx, base], при котором самое длинное слово
+        // влезает в строку. null — не влезает даже в минимальном.
+        function searchSize(el, avail, base) {
+          var floorPx = Math.max(Math.ceil(base * MIN_RATIO), MIN_PX);
+          function fitsAt(px) {
+            el.style.fontSize = px + 'px';
+            return longestChunk(el) <= avail + TOLERANCE;
+          }
+          if (!fitsAt(floorPx)) return null;
+          var lo = floorPx, hi = base;
+          while (hi - lo > 1) {
+            var mid = Math.floor((lo + hi) / 2);
+            if (fitsAt(mid)) lo = mid; else hi = mid;
+          }
+          return lo;
+        }
+
         function fitOne(el) {
           el.style.fontSize = '';
           el.style.lineHeight = '';
+          el.classList.remove(SWAP_CLASS);
           var cs = getComputedStyle(el);
           if (cs.display === 'none' || cs.visibility === 'hidden') return;
           var avail = el.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0);
           if (!(avail > 1)) return;                       // скрытые и нулевые пропускаем
           var base = parseFloat(cs.fontSize);
           if (!base) return;
+          // межстрочный читаем здесь: `cs` живой, после правки font-size
+          // он отдаст уже пересчитанное значение, и масштаб уедет
+          var baseLh = parseFloat(cs.lineHeight);
+          var accidental = cs.fontFamily.indexOf('Onder') !== -1;
+
           if (longestChunk(el) <= avail + TOLERANCE) return;   // всё помещается — не трогаем
 
-          var floorPx = Math.max(Math.ceil(base * MIN_RATIO), MIN_PX);
+          var size = searchSize(el, avail, base);
 
-          // наибольший кегль, при котором слово целиком влезает в строку:
-          // двоичный поиск по [floorPx, base]
-          function fitsAt(px) {
-            el.style.fontSize = px + 'px';
-            return longestChunk(el) <= avail + TOLERANCE;
-          }
-          var size;
-          if (!fitsAt(floorPx)) {
-            size = floorPx;                               // уже минимум, дальше некуда
-          } else {
-            var lo = floorPx, hi = base;
-            while (hi - lo > 1) {
-              var mid = Math.floor((lo + hi) / 2);
-              if (fitsAt(mid)) lo = mid; else hi = mid;
+          // Минимального кегля не хватило — слово всё равно рвётся посередине.
+          // Акцидентный Onder в 2–3 раза шире основного Onest: «Консультация»
+          // при 20 px — 471 px против 190. Поэтому переводим заголовок на
+          // основную гарнитуру и ищем кегль заново от исходного: так слово
+          // влезает целиком и крупнее, чем 10 px, в которые упирался поиск.
+          // Если заголовок и так на основной гарнитуре — менять нечего,
+          // оставляем минимум.
+          if (size === null && accidental) {
+            el.classList.add(SWAP_CLASS);
+            el.style.fontSize = '';
+            if (longestChunk(el) <= avail + TOLERANCE) {
+              size = base;                                 // в Onest влезает в исходном кегле
+            } else {
+              size = searchSize(el, avail, base);
             }
-            size = lo;
           }
-          el.style.fontSize = size + 'px';
+          if (size === null) {
+            size = Math.max(Math.ceil(base * MIN_RATIO), MIN_PX);
+          }
 
-          var baseLh = parseFloat(cs.lineHeight);
+          el.style.fontSize = size + 'px';
           if (!isNaN(baseLh) && baseLh > 0) {
             el.style.lineHeight = Math.max(Math.round(baseLh * (size / base)), size + 2) + 'px';
           }
@@ -753,6 +862,20 @@
         fitAll();
         if (document.fonts && document.fonts.ready) {
           document.fonts.ready.then(fitAll).catch(function () {});
+          // `fonts.ready` в Safari может разрешиться раньше, чем акцидентный
+          // Onder реально подменит запасную гарнитуру. Первый проход тогда
+          // меряет узкий запасной шрифт, решает, что слово помещается, и
+          // кегль не трогает. Ширина самого блока при этом не меняется,
+          // поэтому ResizeObserver молчит и пересчёта не будет. Просим
+          // конкретные начертания и пересчитываем, когда они доехали.
+          if (document.fonts.load) {
+            ['1em Onder', '600 1em Onest', '800 1em Onest'].forEach(function (face) {
+              document.fonts.load(face).then(fitAll).catch(function () {});
+            });
+          }
+          if (document.fonts.addEventListener) {
+            document.fonts.addEventListener('loadingdone', fitAll);
+          }
         }
         window.addEventListener('load', fitAll);
 

@@ -633,7 +633,25 @@
           var iconH = icon ? icon.getBoundingClientRect().height : 22;
           var byIcon = digit100 ? (iconH * 100) / digit100 : byWidth;
 
-          var size = Math.max(MIN_PX, Math.floor(Math.min(byWidth, byIcon)));
+          // третье ограничение: номер не крупнее заголовка раздела
+          // («Проектирование», «Поставка», «Сервис»). Берём живой заголовок —
+          // его мог уменьшить technexFitHeadings, и тогда номер идёт следом.
+          // На внутренних страницах таких заголовков нет: меряем пустую
+          // болванку с тем же классом, чтобы не зашивать кегль числом.
+          var byTitle = Infinity;
+          var title = document.querySelector('.cat__title');
+          if (title) {
+            byTitle = parseFloat(getComputedStyle(title).fontSize) || Infinity;
+          } else {
+            var probe = document.createElement('span');
+            probe.className = 'h4 cat__title';
+            probe.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none;';
+            document.body.appendChild(probe);
+            byTitle = parseFloat(getComputedStyle(probe).fontSize) || Infinity;
+            probe.parentNode.removeChild(probe);
+          }
+
+          var size = Math.max(MIN_PX, Math.floor(Math.min(byWidth, byIcon, byTitle)));
           phone.style.fontSize = size + 'px';
           // строку держим по высоте значка, чтобы полоса не меняла высоту
           phone.style.lineHeight = Math.round(iconH) + 'px';

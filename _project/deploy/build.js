@@ -11,7 +11,7 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const OUT = path.resolve(ROOT, process.argv[2] || '_site');
-const SKIP = new Set(['_project', '.git', '.github', '.gitattributes', '.gitignore', 'CLAUDE.md', path.basename(OUT)]);
+const SKIP = new Set(['_project', '.git', '.github', '.gitattributes', '.gitignore', 'CLAUDE.md', 'netlify.toml', path.basename(OUT)]);
 
 let files = 0;
 function copyDir(from, to) {

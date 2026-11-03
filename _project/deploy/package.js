@@ -13,7 +13,7 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..', '..');
-const SKIP = new Set(['.git', '.gitignore', '.gitattributes', 'CLAUDE.md', '_site']);
+const SKIP = new Set(['.git', '.gitignore', '.gitattributes', 'CLAUDE.md', 'netlify.toml', '_site']);
 const stamp = new Date().toISOString().slice(0, 10);
 const DEST = path.resolve(process.argv[2] || path.join(ROOT, '..'));
 const STAGE = path.join(DEST, 'technex-site-' + stamp);

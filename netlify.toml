@@ -1,0 +1,15 @@
+# Настройки сборки стенда на Netlify. Лежит в корне, потому что Netlify читает
+# этот файл только отсюда — к зеркалу сайта отношения не имеет и в пакеты для
+# передачи не попадает (исключён в _project/deploy/package.js и build.js).
+#
+# Что делает build.js: собирает папку _site — зеркало без служебного
+# (_project, CLAUDE.md, .git) плюс robots.txt, _headers с запретом индексации
+# и _redirects с правилами для страниц, сохранённых с query-строкой.
+[build]
+  command = "node _project/deploy/build.js"
+  publish = "_site"
+
+# Функции Netlify не используются: страницы с query отдаются правилами
+# из _redirects. Папку с функцией для Cloudflare Pages Netlify не трогает.
+[build.processing]
+  skip_processing = true

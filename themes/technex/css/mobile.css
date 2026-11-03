@@ -588,3 +588,149 @@ body.is-mobile .mainmenu.is-pinned { width: 100%; }
   width: min(360px, 85vw);
   max-width: 85vw;
 }
+
+
+/* ===========================================================
+   BANNER 2026-11-03 · баннер радиоуправления: два узких режима
+   Макет: Figma «Technex», секция 799:2366 — кадры «900»
+   (796:2327), «899» (796:2345), «720» (796:2356) и
+   «Баннер / РАДИОУПРАВЛЕНИЕ» (796:2362). Значения сняты
+   из макета, не подобраны.
+
+   Что меняется и почему:
+   1. 899–720. Баннер перестаёт быть отдельной карточкой:
+      скругление снимается, фон становится белым, как у блока
+      направлений выше, отбивка 30 px убирается — баннер
+      прилипает к нему снизу. Разделяет их бордер 1 px
+      var(--grey-2) — тот же, что в макете нарисован у самого
+      баннера.
+      Баннер распускается на всю ширину экрана: блок
+      направлений лежит в `.panel`, а он в мобильном режиме
+      идёт от края до края (`body.is-mobile .hero__inner
+      { width: 100% }` в style.css), тогда как `main.container`
+      ужат до `100% − 24px`. Поэтому −12 px по бокам; правило
+      поэтому и висит на `body.is-mobile` — без этого класса
+      ширина контейнера другая (`100% − 32px`) и края не
+      сойдутся.
+      Пульт перестаёт выходить за верх карточки: встаёт внутрь
+      (top 16, right 24, ширина 212) и обрезается низом баннера.
+   2. ≤719. Остаются только картинка и кнопка, кнопка во всю
+      ширину и несёт на себе заголовок. Заголовок и описание
+      скрыты. Прилипание и бордер те же.
+
+   Отклонения от макета — по месту, оба помечены ниже:
+   текст описания и кегль подписи на кнопке.
+   =========================================================== */
+
+/* Второй ярлык кнопки («Радиоуправление») нужен только в режиме ≤719,
+   везде остальное он скрыт. Правило общее — иначе он виден и на десктопе. */
+.btn__label--narrow { display: none; }
+
+@media (max-width: 899px) {
+  /* ── 1. Прилипание к блоку направлений, бордер, белый фон ── */
+  body.is-mobile .banner--radio {
+    margin: 0 -12px;
+    padding: 0;
+    display: block;
+    overflow: hidden;
+  }
+  body.is-mobile #block-technex-bannerglavnaya .block__content > div {
+    min-height: 326px;
+    padding: 60px 40px 40px;
+    background: var(--white);
+    border-radius: 0;
+    border-top: 1px solid var(--grey-2);
+    border-bottom: 1px solid var(--grey-2);
+    overflow: hidden;
+  }
+  /* в макете на этих ширинах косых линий нет */
+  body.is-mobile .banner--radio .banner__decors { display: none; }
+
+  /* ── 2. Колонка контента по макету ── */
+  body.is-mobile .banner--radio .banner__content {
+    width: auto;
+    max-width: 100%;
+    margin: 0;
+  }
+  /* заголовок остаётся на Onder: правка от 2026-10-21 переводит
+     `.banner .h3` на Onest с 820 px, но в макете «899» и «720»
+     подпись акцидентная, 20/40 */
+  body.is-mobile .banner--radio .banner__kicker {
+    font-family: var(--font-head);
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: normal;
+    font-size: 20px;
+    line-height: 40px;
+  }
+  /* отбивки по макету: заголовок 60→100, описание 129, кнопка 230,
+     низ карточки 326 */
+  body.is-mobile .banner--radio .banner__text {
+    margin: 29px 0 69px;
+    /* описание не заезжает под пульт: 212 — его ширина, 24 — отступ
+       от правого края, ещё 16 — зазор */
+    max-width: calc(100% - 252px);
+  }
+  body.is-mobile .banner--radio .btn {
+    display: inline-flex;
+    width: auto;
+  }
+
+  /* ── 3. Пульт внутри карточки, обрезан её низом ── */
+  body.is-mobile .banner--radio .banner__overhang {
+    position: absolute;
+    top: 16px;
+    right: 24px;
+    bottom: auto;
+    width: 212px;
+    margin: 0;
+  }
+}
+
+@media (max-width: 719px) {
+  /* картинка и кнопка в колонку по центру: padding 32/24, зазор 16 */
+  body.is-mobile #block-technex-bannerglavnaya .block__content > div {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    min-height: 0;
+    padding: 32px 24px;
+  }
+  body.is-mobile .banner--radio .banner__kicker,
+  body.is-mobile .banner--radio .banner__text { display: none; }
+  body.is-mobile .banner--radio .banner__overhang {
+    position: static;
+    order: 1;
+    width: 119px;
+    margin: 0;
+  }
+  body.is-mobile .banner--radio .banner__content {
+    order: 2;
+    width: 100%;
+    max-width: 100%;
+  }
+  /* кнопка во всю ширину и с заголовком вместо «Подробно».
+     Кегль 9 px — из макета, и он здесь не косметика: Onder вдвое
+     шире основной гарнитуры, «РАДИОУПРАВЛЕНИЕ» на 12 px занимает
+     327 px при 279 доступных на 375 и вылезает за кнопку. */
+  body.is-mobile .banner--radio .btn {
+    display: flex;
+    width: 100%;
+    font-size: 9px;
+  }
+  body.is-mobile .banner--radio .btn .btn__label { display: none; }
+  body.is-mobile .banner--radio .btn .btn__label--narrow { display: block; }
+}
+
+/* на 320 подпись не вмещается и в 9 px — 249 px при 224 доступных.
+   Кегль ниже макетного не опускаем, вместо этого поджимаем поля:
+   у карточки с 24 до 16, у самой кнопки с 24 до 12. На 320 остаётся
+   264 px под 249 px текста. */
+@media (max-width: 400px) {
+  body.is-mobile #block-technex-bannerglavnaya .block__content > div {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  body.is-mobile .banner--radio .btn { padding-left: 12px; padding-right: 12px; }
+}

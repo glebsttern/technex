@@ -266,68 +266,42 @@
         var phone = menu.querySelector('.header-phone');
         if (!nav || !logo || !phone) return;
 
-        // Шапка по макету: три режима.
-        //   is-full   — одна полоса: логотип 203, меню, контакты справа
-        //   is-mid    — две полосы: логотип 162 + меню, контакты отдельной полосой
-        //   is-burger — две полосы: логотип 162 + «Меню», контакты отдельной полосой
-        // Между режимами 24 px запаса, чтобы на граничных ширинах раскладка
-        // не переключалась туда-обратно на каждом пикселе.
-        var FIT_GUARD = 24;
-        var contacts = menu.querySelector('.header-contacts');
-
-        function navWidth() {
-          var w = 0;
-          Array.prototype.forEach.call(nav.children, function (item) {
-            w += item.getBoundingClientRect().width;
-          });
-          return w;
-        }
+        // Шапка по макету: три режима, и переключаются они по ширине окна,
+        // а не по замеру содержимого.
+        //   is-full   (от 1200) — одна полоса: логотип 203, меню, номер справа
+        //   is-mid    (1000–1199) — две полосы: логотип 162 + меню, номер полосой
+        //   is-burger (до 999)  — две полосы: логотип 162 + «Меню», номер полосой
+        //
+        // Почему пороги, а не замер. Замер считал раскладку на лету и давал
+        // три беды: решение зависело от момента (на недогруженной странице
+        // ширина другая), при ручном перетаскивании окна оно отставало на
+        // debounce в 120 мс, и на этом промежутке номер успевал перенестись
+        // сам — тот самый четвёртый вид. matchMedia срабатывает в тот же кадр,
+        // что и перерисовка, поэтому промежуточных состояний не бывает.
+        //
+        // Откуда числа. Одна полоса требует 203 (логотип) + 32 + 663 (меню)
+        // + 32 + 158 (номер со значками) = 1088 плюс поля шапки 48, итого 1136.
+        // На окне 1200 шапка шириной 1153 — запас 17 px. Ниже 1200 уже не
+        // влезает, отсюда первый порог.
+        // Две полосы с горизонтальным меню требуют 162 + 16 + 663 = 841 плюс
+        // поля 32, итого 873. На окне 1000 шапка 953 — запас 80 px; меню
+        // перестаёт помещаться около 920, поэтому второй порог 1000 взят
+        // с запасом и совпадает с макетом («промежуточный» нарисован на 999).
+        var mqFull = window.matchMedia('(min-width: 1200px)');
+        var mqMenu = window.matchMedia('(min-width: 1000px)');
 
         function fit() {
           var wasBurger = menu.classList.contains('is-burger');
 
-          // Меряем в режиме «всё в одну полосу». Флаг is-mobile снимаем тоже:
-          // в мобильной раскладке панель раскрывается в край и контейнер
-          // становится на 32 px шире — иначе замер «переворачивается» и
-          // раскладка дребезжит на соседних ширинах.
-          menu.classList.remove('is-burger', 'is-mid', 'is-compact');
-          menu.classList.add('is-full');
-          document.body.classList.remove('is-mobile');
+          menu.classList.remove('is-full', 'is-mid', 'is-burger', 'is-compact');
+          if (mqFull.matches) menu.classList.add('is-full');
+          else if (mqMenu.matches) menu.classList.add('is-mid');
+          else menu.classList.add('is-burger');
+
           nav.classList.remove('is-open');
           var ov = document.getElementById('navOverlay');
           if (ov) ov.classList.remove('is-open');
           document.body.classList.remove('is-menu-open');
-
-          var styles = getComputedStyle(menu);
-          var gap = parseFloat(styles.columnGap) || 40;
-          var available = menu.clientWidth
-            - (parseFloat(styles.paddingLeft) || 0)
-            - (parseFloat(styles.paddingRight) || 0);
-          if (available <= 0) return;
-
-          var navNeeds = navWidth();
-          var contactsWidth = contacts ? contacts.getBoundingClientRect().width : 0;
-          var fullRow = logo.getBoundingClientRect().width + navNeeds + contactsWidth + gap * 2;
-
-          if (fullRow + FIT_GUARD > available) {
-            // Контакты уезжают во вторую полосу, логотип уменьшается.
-            menu.classList.remove('is-full');
-            menu.classList.add('is-mid');
-
-            // Отступы и промежутки в этом режиме другие (16 вместо 24, gap 16
-            // вместо 40), а панель шире — поэтому доступную ширину меряем заново,
-            // иначе меню уходит под кнопку раньше, чем перестаёт помещаться.
-            var midStyles = getComputedStyle(menu);
-            var midGap = parseFloat(midStyles.columnGap) || 16;
-            var midAvailable = menu.clientWidth
-              - (parseFloat(midStyles.paddingLeft) || 0)
-              - (parseFloat(midStyles.paddingRight) || 0);
-            var midRow = logo.getBoundingClientRect().width + navWidth() + midGap;
-            if (midRow + FIT_GUARD > midAvailable) {
-              menu.classList.remove('is-mid');
-              menu.classList.add('is-burger');
-            }
-          }
 
           document.body.classList.toggle('is-mobile', menu.classList.contains('is-burger'));
           document.body.classList.toggle('is-mid-header', menu.classList.contains('is-mid'));
@@ -339,6 +313,13 @@
             );
           }
         }
+
+        // Переключение режима — сразу по медиазапросу, без ожидания resize.
+        function onMode() { fit(); measurePin(); syncPin(); }
+        [mqFull, mqMenu].forEach(function (mq) {
+          if (mq.addEventListener) mq.addEventListener('change', onMode);
+          else if (mq.addListener) mq.addListener(onMode);
+        });
 
         // Полоса контактов: первые 1080 px (примерно полтора-два экрана) видна
         // при листании вниз и возвращается при листании вверх.

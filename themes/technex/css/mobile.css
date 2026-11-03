@@ -1,0 +1,590 @@
+/* ===========================================================
+   mobile.css · правки проекта «Технекс — мобильная версия»
+   Собрано 2026-10-21
+
+   ВАЖНО ДЛЯ ПРОГРАММИСТА
+   Файл подключается ТОЛЬКО ПОСЛЕ style.css. Часть правил
+   переопределяет существующие (например, .mainmenu__actions
+   меняется с display: contents на флекс, заголовок баннера
+   снимается с Onder). Если подключить раньше style.css —
+   шапка и баннеры поедут.
+   В Drupal: положить файл в тему и дописать его в
+   technex.libraries.yml следующей строкой после style.css.
+
+   Что здесь НЕ лежит (осталось вне этого файла):
+   - font-display: block у @font-face «Onder» в style.css —
+     правка существующего объявления, из другого файла её
+     надёжно не переопределить;
+   - display=optional в ссылке на Google Fonts в <head>;
+   - разметка шапки с мессенджерами (все страницы) и кнопка
+     «Подробнее» в блоках направлений на главной;
+   - поведение кнопки «Подробнее» — themes/technex/js/app.js,
+     Drupal.behaviors.technexCatMore.
+   Полный перечень правок — в _project/CHANGELOG.md.
+
+   Структура файла:
+   1. Общие правки — работают и на десктопе (шапка, ховеры)
+   2. Мобильные правки — только внутри @media (max-width: 820px)
+   =========================================================== */
+
+/* ===========================================================
+   MOBILE-FIX 2026-10-20 · выдвижное меню (режим бургера)
+   Страница шире вьюпорта (сетка категорий на главной не
+   перестраивается в одну колонку), поэтому мобильный Chrome
+   расширяет layout viewport до ширины контента. Панель меню
+   позиционируется `right: 0` от этого расширенного вьюпорта
+   и уезжает за правый край экрана: на 375 видна полоска,
+   на 320 панели не видно вовсе, крестик и стрелки подменю
+   физически вне экрана. По той же причине панель оказывается
+   выше экрана по высоте (на 320×568 — 1085 px), её низ уходит
+   под край экрана, и собственный скролл панели не включается.
+   Смещаем панель на величину расхождения по обеим осям:
+   100% (размер layout viewport) − 100vw / 100vh (размер
+   экрана). Когда переполнения нет, max() даёт 0 и поведение
+   прежнее, так что правило останется корректным и после
+   перевёрстки категорий.
+   Десктоп не затронут: правила внутри @media и под классом
+   .is-burger, который на десктопе не выставляется.
+   =========================================================== */
+@media (max-width: 820px) {
+  .mainmenu.is-burger .nav {
+    right: max(0px, calc(100% - 100vw));
+    bottom: max(0px, calc(100% - 100vh));
+  }
+  /* зона нажатия кнопки «Меню»: было 38 px по высоте, стало 44 */
+  .mainmenu.is-burger .burger {
+    padding: 11px 14px;
+  }
+
+  /* При каждом переходе панель меню «выезжала и уезжала»: до того как JS
+     поставит .is-burger, .nav — обычное горизонтальное меню без transform,
+     а вместе с классом приезжают сразу и transform: translateX(100%), и
+     transition 0.3s, поэтому браузер проигрывает закрытие панели. Страница
+     к этому моменту уже показана (body.is-ready), и пользователь видит
+     дёрганье. Задаём закрытое состояние заранее: с .is-burger значение
+     transform не меняется, анимировать нечего. Открытие и закрытие по
+     кнопке работают как раньше. */
+  .mainmenu .nav {
+    transform: translateX(100%);
+    visibility: hidden;
+  }
+  .mainmenu .nav.is-open {
+    transform: translateX(0);
+    visibility: visible;
+  }
+}
+
+
+/* ===========================================================
+   HEADER-FIX 2026-10-20 · телефон в шапке + мессенджеры
+   Было: .mainmenu__actions { display: contents }, поэтому номер
+   был обычным элементом флекса шапки и его позицию задавал
+   gap: 40px от меню — правый край номера не совпадал с правым
+   краем кнопки «Найти» (на 1440: 1247 против 1296).
+   Стало: actions — свой флекс, прижатый margin-left: auto, то
+   есть положение номера задаёт внутренний отступ шапки
+   (padding-right: 24px — такой же, как у строки поиска).
+   Под номером — ряд мессенджеров, выровненный по тому же
+   правому краю.
+   Затрагивает и десктоп — согласовано с заказчиком.
+   =========================================================== */
+.mainmenu__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+.header-contacts {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+
+/* заголовки разделов на главной («Проектирование», «Поставка», «Сервис») */
+.cat__title a { transition: color 0.15s ease; }
+.cat__title a:hover { color: var(--brand-400); }
+
+
+
+/* ===========================================================
+   CATS-FIX 2026-10-20 · блоки направлений на мобильном
+   На узком экране три колонки оставались в ряд (грид висит на
+   вложенной обёртке `.block__content > div`, а прежний
+   медиазапрос правил `.cats`, то есть мимо), из-за чего
+   страница была шире экрана на 236 px, а «Сервис» вообще не
+   попадал в кадр. Ставим направления одно под другим, в каждом
+   показываем три пункта, остальные — по кнопке «Подробнее».
+   Кнопка после раскрытия убирается: сворачивать обратно не
+   нужно (решение заказчика).
+   Десктоп не затронут: правила внутри @media, кнопка по
+   умолчанию скрыта.
+   =========================================================== */
+.cat__more { display: none; }
+
+@media (max-width: 820px) {
+  .cats #block-technex-kategoriiglavnaya .block__content > div {
+    grid-template-columns: 1fr;
+    gap: 32px;
+    padding: 16px 16px 24px;
+  }
+  .cat__cover img { height: 200px; }
+  .cat__title { margin: 12px 0 16px; }
+  .cat__list { padding: 0 0 16px; gap: 14px; }
+
+  /* видны первые три пункта, остальные ждут кнопки */
+  .cat__list > li:nth-child(n + 4) { display: none; }
+  .cat.is-expanded .cat__list > li { display: block; }
+
+  .cat__more {
+    display: block;
+    padding: 0;
+    border: 0;
+    background: none;
+    font-family: var(--font-body);
+    font-weight: 400;
+    font-size: 15px;
+    line-height: 20px;
+    color: var(--text-secondary);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+  }
+  .cat__more:hover { color: var(--brand-400); }
+  .cat.is-expanded .cat__more { display: none; }
+}
+
+
+/* ===========================================================
+   BANNER-FIX 2026-10-21 · баннеры не вылезают за край экрана
+   На узком экране колонка `.banner__content` остаётся шириной
+   по содержимому (на 375 — 143 px при карточке 351 px), и
+   кнопка «Подробно» шириной 230 px выходит за правый край:
+   на 320 это давало переполнение страницы до 347 px, а в
+   мобильном Chrome — растянутый layout viewport, из-за
+   которого уезжала панель меню.
+   Распускаем колонку на всю ширину карточки и даём кнопке
+   ширину блока. Заодно заголовок и текст перестают рубиться
+   по 1–3 слова в строку.
+   Десктоп не затронут: правила внутри @media.
+   =========================================================== */
+@media (max-width: 820px) {
+  /* боковые отступы 80 px сидят на вложенной обёртке Drupal, а мобильный
+     медиазапрос правил только `.banner` — из-за этого колонка контента на
+     360 px сжималась до 128 px (336 − 24·2 − 80·2) */
+  #block-technex-bannerglavnaya .block__content > div,
+  #block-technex-karuselglavnaya .banner {
+    padding: 32px 24px;
+    min-height: 0;
+  }
+  .banner__content {
+    width: 100%;
+    max-width: 100%;
+  }
+  .banner .btn {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    text-align: center;
+  }
+  /* то же решение, что уже принято в теме для `.h-display`: Onder слишком
+     широкий для узкого экрана — слово «Радиоуправление» при текущем кегле
+     занимает 471 px при 240 доступных и рубится на три строки */
+  .banner .h3 {
+    font-family: var(--font-body);
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: -0.01em;
+    font-size: 22px;
+    line-height: 28px;
+  }
+}
+
+
+/* ===========================================================
+   HEADER 2026-11-03 · шапка строго по макету Figma
+   Секция «header», кадры: «Основной» (node 746:1390),
+   «Промежуточный» (746:1675), «Мобильный» (746:1855).
+   Значения ниже сняты из макета через Figma MCP, не подобраны.
+
+   Режимы выставляет JS (technexFitMenu):
+     .is-full   — одна полоса 1200×78, скругление 24 px сверху
+     .is-mid    — две полосы: 64 (логотип + меню) + 42 (контакты)
+     .is-burger — две полосы: 68 (логотип + «Меню») + 42 (контакты)
+   Полоса контактов в двух последних режимах прячется при листании
+   вниз и возвращается при листании вверх (класс .is-contacts-hidden).
+   Затрагивает десктоп — это и есть новый макет шапки.
+   =========================================================== */
+.mainmenu {
+  flex-wrap: wrap;
+  row-gap: 0;
+  align-items: center;
+}
+
+/* пункт меню = компонент MenuButton из макета: 8/12, скругление 12 */
+.nav__link {
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 20px;
+  white-space: nowrap;
+}
+
+/* ── контакты ──────────────────────────────────────────────── */
+.header-phone {
+  font-family: var(--font-body);
+  font-weight: 600;
+  color: #111;
+  transition: color 0.15s ease;
+}
+.header-phone:hover { color: var(--brand-400); }
+.header-messengers { display: flex; align-items: center; }
+
+/* значки — цельные SVG из макета (чёрный круг + белый глиф) */
+.header-messenger {
+  position: relative;
+  display: block;
+  width: 22px;
+  height: 22px;
+  border-radius: 0;
+  background-color: transparent;
+  background-clip: border-box;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 22px 22px;
+  transition: opacity 0.15s ease;
+}
+.header-messenger:hover { opacity: 0.65; }
+/* зона нажатия 40×36 поверх значка — не влияет на высоту полосы */
+.header-messenger::after {
+  content: "";
+  position: absolute;
+  inset: -7px -9px;
+}
+.header-messenger--telegram { background-image: url("../img/fig-telegram.svg"); }
+.header-messenger--whatsapp { background-image: url("../img/fig-whatsapp.svg"); }
+.header-messenger--viber { background-image: url("../img/fig-viber.svg"); }
+
+/* ── режим «Основной»: одна полоса, 1200×78 ───────────────── */
+.mainmenu.is-full {
+  height: auto;
+  gap: 40px;
+  padding: 12px 24px;
+  border-radius: 24px 24px 0 0;
+}
+.mainmenu.is-full .logo { width: 203px; height: 50px; }
+.mainmenu.is-full .header-contacts {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0;
+}
+.mainmenu.is-full .header-phone {
+  display: block;
+  height: 36px;
+  margin-bottom: -4px;   /* перекрытие строк, как в макете (mb -4) */
+  padding: 4px 0;
+  font-size: 18px;
+  line-height: 26px;
+}
+.mainmenu.is-full .header-messengers { gap: 4px; justify-content: flex-end; }
+
+/* ── режимы «Промежуточный» и «Мобильный»: две полосы ──────── */
+.mainmenu.is-mid,
+.mainmenu.is-burger {
+  height: auto;
+  column-gap: 16px;
+  row-gap: 0;
+  padding: 12px 16px;
+  border-radius: 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.07);
+}
+/* логотип собран из шести абсолютных частей — уменьшаем целиком */
+.mainmenu.is-mid .logo,
+.mainmenu.is-burger .logo { width: 203px; height: 50px; zoom: 0.8; }
+
+.mainmenu.is-mid .nav { margin-left: auto; }
+.mainmenu.is-mid .mainmenu__actions,
+.mainmenu.is-burger .mainmenu__actions { margin-left: auto; }
+
+/* полоса контактов */
+.mainmenu.is-mid .header-contacts,
+.mainmenu.is-burger .header-contacts {
+  order: 10;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  width: calc(100% + 32px);
+  margin: 12px -16px -12px;   /* 12 — отбивка от первой полосы, -12 — съедаем нижний padding шапки */
+  padding: 8px 24px;
+  background: var(--white);
+  border-top: 1px solid rgba(0, 0, 0, 0.07);
+  overflow: hidden;
+  transition: height 0.25s ease, padding 0.25s ease, opacity 0.2s ease;
+}
+.mainmenu.is-mid .header-phone,
+.mainmenu.is-burger .header-phone { font-size: 20px; line-height: 26px; }
+.mainmenu.is-mid .header-messengers,
+.mainmenu.is-burger .header-messengers { gap: 8px; }
+
+/* полоса контактов спрятана (листаем вниз) */
+.mainmenu.is-contacts-hidden .header-contacts {
+  height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  opacity: 0;
+  border-top-width: 0;
+}
+
+/* ── кнопка «Меню» по макету: 96×44, скругление 12 ─────────── */
+.mainmenu.is-burger .burger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 96px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 12px;
+  background: none;
+}
+.mainmenu.is-burger .burger__icon {
+  width: 18px;
+  height: 18px;
+  background: url("../img/fig-menu.svg") center / 18px 18px no-repeat;
+}
+.mainmenu.is-burger .burger__icon::before,
+.mainmenu.is-burger .burger__icon::after { content: none; }
+.mainmenu.is-burger .burger__text {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+
+/* ===========================================================
+   HEADER-FIX 2026-11-03 · замечания по шапке после просмотра
+   1. Навигация прижата вправо — по макету «Промежуточный».
+   2. Скругление 24 px сверху есть и в промежуточном режиме:
+      там панель тоже с полями. В бургере панель в край — скругления нет.
+   3. Фоновые линии вынесены на задний план и закреплены за экраном;
+      в промежуточном и мобильном режимах их нет.
+   =========================================================== */
+
+/* навигация вправо (в основном режиме — сразу за логотипом, как в макете) */
+.mainmenu.is-mid .nav {
+  margin-left: auto;
+  justify-content: flex-end;
+}
+.mainmenu.is-full .nav { justify-content: flex-start; }
+
+/* скругление верхних углов: всюду, где панель не во всю ширину */
+.mainmenu.is-mid { border-radius: 24px 24px 0 0; }
+
+/* фоновые линии: всегда позади контента, закреплены за экраном */
+.hero__lines {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  width: 100vw;
+  height: 100vh;
+  object-fit: cover;
+  object-position: top center;
+}
+.hero { z-index: 1; }
+/* в промежуточном и мобильном режимах фоновой графики нет */
+body.is-mid-header .hero__lines,
+body.is-mobile .hero__lines { display: none; }
+
+/* шапка закреплена у верха окна на всей странице (класс ставит JS,
+   распорка той же высоты встаёт на её место в потоке) */
+.mainmenu.is-pinned {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  width: min(var(--container), 100% - 32px);
+}
+body.is-mobile .mainmenu.is-pinned { width: 100%; }
+.mainmenu-spacer { width: 100%; }
+
+
+/* ===========================================================
+   HEADER/LAYERS 2026-11-03 · замечания 1, 2, 4, 6, 7
+   =========================================================== */
+
+/* 1. Фоновые линии — строго позади всего. Было z-index: 0 внутри .hero,
+   который сам создавал слой (z-index: 1) и поднимал их над блоками ниже. */
+.hero { z-index: auto; }
+.hero__lines { z-index: -1; }
+
+/* 2. Первый блок (панель с шапкой и поиском) скруглён и снизу — на основном вебе */
+.panel { border-radius: var(--radius-lg); }
+
+/* 6, 7. Закреплённая шапка: непрозрачный фон и свой слой, чтобы контент
+   не просвечивал сквозь буквы меню; скругления в закреплённом виде нет */
+.mainmenu.is-pinned {
+  background: var(--white);
+  border-radius: 0;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  isolation: isolate;
+}
+.mainmenu.is-pinned .header-contacts { background: var(--white); }
+
+/* 4. Мобильное меню раскрывается на весь экран */
+.mainmenu.is-burger .nav {
+  width: 100%;
+  max-width: 100%;
+}
+.mainmenu.is-burger .nav__close { right: 12px; }
+
+
+/* ===========================================================
+   LAYERS/LINES 2026-11-03 · замечания 2, 3, 4 по просмотру главной
+
+   2. Шапка всегда поверх страницы.
+      `.hero__inner` — position: relative + z-index: 1, то есть
+      собственный контекст наложения. Закреплённая шапка лежит внутри
+      него, поэтому её z-index: 40 считался не от страницы, а от этой
+      единицы, и подвал (`.footer > * { z-index: 1 }`, ниже по дереву)
+      перекрывал шапку — номер телефона из подвала рисовался поверх меню.
+      Поднимаем весь контекст хиро над остальной страницей, а панель с
+      шапкой — над соседними панелями (класс ставит JS вместе с .is-pinned).
+      Выпадающие меню (20), затемнение (50) и выдвижная панель (60) лежат
+      внутри этого же контекста, их взаимный порядок не меняется.
+
+   3. Фоновые линии вернулись.
+      `.hero` закрашен непрозрачным --page-bg, а линии ушли на z-index: -1.
+      Отрицательный слой у потомка рисуется позади фона ближайшего
+      контекста наложения — то есть позади заливки `.hero`: картинку
+      закрывал фон собственной секции. Снимаем заливку с `.hero` (тот же
+      цвет уже лежит на body и доходит до канвы, то есть ниже слоя -1) и
+      растягиваем линии на весь экран по обеим осям. Сам SVG собран с
+      preserveAspectRatio="none", растяжение для него штатное.
+
+   4. Линии в подвале.
+      Были шириной во всю ширину подвала при height: auto и центровке по
+      вертикали: на широком экране картинка выше подвала и вылезала
+      обрезанной полосой поверх контактов, на узком — не доставала до
+      низа. Растягиваем по площади подвала (overflow: hidden у подвала
+      уже есть). Поворот на 180° со сжатием по Y — это обычное зеркало
+      по горизонтали, пишем его так, чтобы не мешать растягиванию.
+   =========================================================== */
+
+/* 2. слои: хиро (и закреплённая в нём шапка) — над остальной страницей */
+.hero__inner { z-index: 60; }
+.panel.is-pinned-host { z-index: 60; }
+
+/* 3. фоновые линии — на весь экран, позади всего */
+.hero { background: none; }
+.hero__lines {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: -1;
+  width: 100vw;
+  height: 100vh;
+  object-fit: fill;
+}
+
+/* 4. линии подвала — по всей площади подвала */
+.footer__lines {
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  transform: scaleX(-1);
+}
+
+
+/* ===========================================================
+   CONTACTS 2026-11-03 · полоса контактов во второй строке
+
+   1. Номер налезал на строку поиска.
+      Полоса контактов выходила за поля шапки хаком
+      `width: calc(100% + 32px); margin: 12px -16px -12px`. Нижние −12
+      гасили нижний padding шапки — но гасили его у ПОСЛЕДНЕГО элемента,
+      то есть 12 px высоты полосы просто переставали считаться в высоту
+      шапки. Полоса рисовалась ниже границы шапки и заходила на строку
+      поиска: низ полосы 116 px при нижней границе шапки 101 px, низ
+      самого номера — 108, то есть 7 px внутри поля поиска. Пока номер был
+      20/26, запас съедался вертикальными отступами и это было не видно;
+      на 24/31 вылезло.
+      Чинится без хака: в двухполосных режимах у шапки просто нет нижнего
+      padding, а полоса не тянет себя вверх отрицательным margin.
+   2. Внутренние отступы больше не анимируются.
+      `transition: padding` + свёртывание полосы по `padding-top/bottom: 0`
+      означало, что высота полосы зависит от незавершённой анимации: пока
+      она не доиграла, полоса ровно по высоте номера, без просвета до
+      поиска. Теперь у полосы фиксированная высота, номер центрируется
+      внутри, а прячется полоса анимацией только высоты и прозрачности.
+   3. Увеличенные значки и промежутки (просьба заказчика) оставлены
+      только там, где полоса помещается, — от 400 px. На 375 и 320
+      размеры прежние: увеличенная полоса занимает 352 px из 375, боковые
+      поля схлопываются с 24 до 12 и перестают совпадать со строкой
+      поиска, а на 320 номер и третий значок просто обрезаются.
+   =========================================================== */
+.mainmenu.is-mid,
+.mainmenu.is-burger { padding-bottom: 0; }
+
+.mainmenu.is-mid .header-contacts,
+.mainmenu.is-burger .header-contacts {
+  height: 43px;            /* 26 (строка номера) + 16 просвета + 1 линия */
+  margin: 12px -16px 0;
+  padding: 0 24px;
+  transition: height 0.25s ease, margin-top 0.25s ease, opacity 0.2s ease;
+}
+
+/* спрятанная полоса схлопывается вместе с отбивкой от первой строки */
+.mainmenu.is-contacts-hidden .header-contacts { margin-top: 0; }
+
+/* от 400 px полоса помещается с увеличенными значками и промежутками:
+   промежутки вдвое (16 → 32 и 8 → 16), значки 22 → 26, номер соразмерно
+   (26/22 ≈ 1.18), то есть 20/26 → 24/31; зона нажатия остаётся 44×44 */
+@media (min-width: 400px) {
+  .mainmenu.is-mid .header-contacts,
+  .mainmenu.is-burger .header-contacts {
+    height: 48px;          /* 31 + 16 + 1 */
+    gap: 32px;
+  }
+  .mainmenu.is-mid .header-messengers,
+  .mainmenu.is-burger .header-messengers { gap: 16px; }
+
+  .mainmenu.is-mid .header-phone,
+  .mainmenu.is-burger .header-phone { font-size: 24px; line-height: 31px; }
+
+  .mainmenu.is-mid .header-messenger,
+  .mainmenu.is-burger .header-messenger {
+    width: 26px;
+    height: 26px;
+    background-size: 26px 26px;
+  }
+  .mainmenu.is-mid .header-messenger::after,
+  .mainmenu.is-burger .header-messenger::after { inset: -9px; }
+}
+
+
+/* ===========================================================
+   BURGER 2026-11-03 · выдвижное меню не во всю ширину
+   Было (решение от 2026-11-03): панель раскрывалась на 100 % ширины —
+   страница целиком подменялась меню, затемнения не видно, и неясно,
+   что за меню скрыт прежний экран.
+   Стало: обычная боковая шторка — панель у правого края, остальное
+   затемнено и закрывает меню по тапу. Ширина из темы — min(360px, 85vw):
+   на 375 это 318 px, 57 px остаётся на затемнение.
+   =========================================================== */
+.mainmenu.is-burger .nav {
+  width: min(360px, 85vw);
+  max-width: 85vw;
+}

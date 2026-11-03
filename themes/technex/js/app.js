@@ -680,6 +680,72 @@
     }
   };
 
+  // Номер в подвале — ссылка `a.h3`, то есть строчный элемент. Подбор кегля
+  // заголовков его не трогал (у строчных `clientWidth` всегда 0), а если бы и
+  // трогал — он меряет самое длинное слово, а здесь все слова короткие
+  // («+375», «486»), каждое влезает по отдельности. Рвался при этом весь
+  // номер: на 375 он занимает 402 px при 311 доступных, на 320 — при 256.
+  // Поэтому меряем строку целиком и ужимаем кегль, но не крупнее макетного.
+  Drupal.behaviors.technexFitFooterPhone = {
+    attach: function (context) {
+      once('technexFitFooterPhone', '.footer__phone', context).forEach(function (phone) {
+        var MIN_PX = 10;
+        var canvas = document.createElement('canvas');
+        var ctx = canvas.getContext && canvas.getContext('2d');
+        if (!ctx) return;
+
+        function fit() {
+          phone.style.fontSize = '';
+          phone.style.lineHeight = '';
+          phone.style.whiteSpace = '';
+
+          var host = phone.parentElement;
+          while (host && host.clientWidth <= 0) host = host.parentElement;
+          if (!host) return;
+          var hs = getComputedStyle(host);
+          var avail = host.clientWidth - (parseFloat(hs.paddingLeft) || 0) - (parseFloat(hs.paddingRight) || 0);
+          if (!(avail > 1)) return;
+
+          var ps = getComputedStyle(phone);
+          var base = parseFloat(ps.fontSize);
+          var baseLh = parseFloat(ps.lineHeight);
+          var text = (phone.textContent || '').trim();
+          if (!base || !text) return;
+
+          ctx.font = ps.fontStyle + ' ' + ps.fontWeight + ' 100px ' + ps.fontFamily;
+          var width100 = ctx.measureText(text).width;
+          if (!width100) return;
+
+          var size = Math.min(base, Math.floor((avail * 100) / width100));
+          size = Math.max(MIN_PX, size);
+          if (size >= base) return;                       // влезает как есть — не трогаем
+
+          phone.style.fontSize = size + 'px';
+          phone.style.whiteSpace = 'nowrap';
+          if (!isNaN(baseLh) && baseLh > 0) {
+            phone.style.lineHeight = Math.max(Math.round(baseLh * (size / base)), size + 2) + 'px';
+          }
+        }
+
+        fit();
+        if (document.fonts && document.fonts.ready) {
+          document.fonts.ready.then(fit).catch(function () {});
+          if (document.fonts.load) document.fonts.load('1em Onder').then(fit).catch(function () {});
+        }
+        window.addEventListener('load', fit);
+        if (window.ResizeObserver) {
+          new ResizeObserver(fit).observe(phone.parentElement || phone);
+        } else {
+          var t = null;
+          window.addEventListener('resize', function () {
+            if (t) clearTimeout(t);
+            t = setTimeout(fit, 120);
+          });
+        }
+      });
+    }
+  };
+
   // Плейсхолдер поиска: на узком экране длинная подсказка не читается —
   // по макету (Figma 803:2701) она заменяется одним словом «Поиск».
   // Текст плейсхолдера атрибутный, из CSS его не подменить, поэтому здесь.
@@ -828,12 +894,29 @@
         }
 
         function fitOne(el) {
+          // Номер в подвале подбирается целиком, а не по самому длинному
+          // слову (поведение technexFitFooterPhone): здесь слова короткие
+          // («+375», «486»), каждое влезает, и подборщик просто ничего бы
+          // не сделал — зато сбросил бы кегль, выставленный тем поведением.
+          if (el.classList.contains('footer__phone')) return;
           el.style.fontSize = '';
           el.style.lineHeight = '';
           el.classList.remove(SWAP_CLASS);
           var cs = getComputedStyle(el);
           if (cs.display === 'none' || cs.visibility === 'hidden') return;
           var avail = el.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0);
+          // У строчных элементов clientWidth всегда 0 — такой заголовок
+          // проверка пропускала целиком. Так телефон в подвале (`a.h3`,
+          // display: inline) никогда не подбирался и рвался на две строки.
+          // Для них доступную ширину берём у ближайшего блочного предка.
+          if (!(avail > 1)) {
+            var host = el.parentElement;
+            while (host && host.clientWidth <= 0) host = host.parentElement;
+            if (host) {
+              var hs = getComputedStyle(host);
+              avail = host.clientWidth - (parseFloat(hs.paddingLeft) || 0) - (parseFloat(hs.paddingRight) || 0);
+            }
+          }
           if (!(avail > 1)) return;                       // скрытые и нулевые пропускаем
           var base = parseFloat(cs.fontSize);
           if (!base) return;
@@ -872,9 +955,65 @@
           }
         }
 
+        // Группы одинаковых заголовков, стоящих рядом. Если одному из них
+        // не хватило даже минимального кегля и он ушёл на основную гарнитуру,
+        // а соседи остались акцидентными, разница бросается в глаза: при
+        // одном и том же кегле Onest выглядит заметно мельче Onder
+        // (замер на 375: «Консультация» в Onest 93 px против «Заявка»
+        // в Onder 122 px при одинаковых 11 px). Поэтому переводим всю группу
+        // и равняем её по самому мелкому кеглю.
+        var GROUPS = ['.step__title', '.cat__title'];
+
+        // подбор кегля без сброса гарнитуры: класс подмены уже стоит
+        function fitKeepFace(el) {
+          el.style.fontSize = '';
+          el.style.lineHeight = '';
+          var cs = getComputedStyle(el);
+          if (cs.display === 'none' || cs.visibility === 'hidden') return 0;
+          var avail = el.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0);
+          if (!(avail > 1)) return 0;
+          var base = parseFloat(cs.fontSize);
+          if (!base) return 0;
+          if (longestChunk(el) <= avail + TOLERANCE) return base;
+          var size = searchSize(el, avail, base);
+          return size === null ? Math.max(Math.ceil(base * MIN_RATIO), MIN_PX) : size;
+        }
+
+        function unifyGroups() {
+          for (var g = 0; g < GROUPS.length; g++) {
+            var list = document.querySelectorAll(GROUPS[g]);
+            if (list.length < 2) continue;
+            var swapped = false, i;
+            for (i = 0; i < list.length; i++) {
+              if (list[i].classList.contains(SWAP_CLASS)) { swapped = true; break; }
+            }
+            if (!swapped) continue;
+
+            var min = Infinity, base = 0, baseLh = 0;
+            for (i = 0; i < list.length; i++) {
+              list[i].classList.add(SWAP_CLASS);
+              if (!base) {
+                var cs0 = getComputedStyle(list[i]);
+                base = parseFloat(cs0.fontSize) || 0;
+                baseLh = parseFloat(cs0.lineHeight) || 0;
+              }
+              var s = fitKeepFace(list[i]);
+              if (s > 0 && s < min) min = s;
+            }
+            if (!isFinite(min) || !base) continue;
+            for (i = 0; i < list.length; i++) {
+              list[i].style.fontSize = min + 'px';
+              if (baseLh > 0) {
+                list[i].style.lineHeight = Math.max(Math.round(baseLh * (min / base)), min + 2) + 'px';
+              }
+            }
+          }
+        }
+
         function fitAll() {
           var list = document.querySelectorAll(SELECTOR);
           for (var i = 0; i < list.length; i++) fitOne(list[i]);
+          unifyGroups();
         }
 
         fitAll();
@@ -904,13 +1043,19 @@
         if (window.ResizeObserver) {
           var lastWidth = new WeakMap();
           var ro = new ResizeObserver(function (entries) {
+            var touched = false;
             for (var i = 0; i < entries.length; i++) {
               var el = entries[i].target;
               var w = Math.round(el.clientWidth);
               if (lastWidth.get(el) === w) continue;
               lastWidth.set(el, w);
               fitOne(el);
+              touched = true;
             }
+            // Поэлементный пересчёт мог перевести на основную гарнитуру
+            // один заголовок из группы и оставить соседей акцидентными —
+            // выравниваем группу, иначе они стоят рядом в разных шрифтах.
+            if (touched) unifyGroups();
           });
           var observed = document.querySelectorAll(SELECTOR);
           for (var k = 0; k < observed.length; k++) ro.observe(observed[k]);

@@ -1562,3 +1562,39 @@ body.is-mobile .map {
     min-height: 44px;
   }
 }
+
+/* ── Две колонки без дыры: график под разделы, почта под телефоны ─
+   Было: в две колонки первой строкой стояли «Разделы» (242 px) и
+   телефоны (405 px), и высоту строки задавали телефоны — под «О нас»
+   зияло полтораста пустых пикселей, а «График работы» и «Электронная
+   почта» начинались только под этой дырой.
+   Стало: телефоны занимают обе первые строки справа, «График работы»
+   встаёт слева прямо под разделы и дыру закрывает, а «Электронная
+   почта» уходит направо под «Отдел продаж» — к телефонам, как и
+   просили. «Реквизиты» по-прежнему во всю ширину последней строкой.
+   Третья колонка раскрывается через `display: contents` по всей
+   цепочке обёрток Drupal (`.footer__col > div > .block >
+   .block__content > .field`) — только так её две группы становятся
+   самостоятельными ячейками сетки. Разметка не трогается. */
+@media (max-width: 820px) and (min-width: 400px) {
+  .footer__cols { align-items: start; }
+  .footer__cols > .footer__col:nth-child(1) { grid-column: 1; grid-row: 1; }
+  .footer__cols > .footer__col:nth-child(2) { grid-column: 2; grid-row: 1 / span 2; }
+
+  .footer__cols > .footer__col:nth-child(3),
+  .footer__cols > .footer__col:nth-child(3) > div,
+  .footer__cols > .footer__col:nth-child(3) .block,
+  .footer__cols > .footer__col:nth-child(3) .block__content,
+  .footer__cols > .footer__col:nth-child(3) .field { display: contents; }
+
+  .footer__cols > .footer__col:nth-child(3) .footer__group:first-child {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .footer__cols > .footer__col:nth-child(3) .footer__group + .footer__group {
+    grid-column: 2;
+    grid-row: 3;
+    margin-top: 0;
+  }
+  .footer__req { grid-row: 4; }
+}

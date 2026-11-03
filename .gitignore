@@ -1,0 +1,3 @@
+# Папка сборки стенда (_project/deploy/build.js). В репозиторий не нужна:
+# это та же копия сайта плюс robots.txt, _headers и functions.
+/_site/

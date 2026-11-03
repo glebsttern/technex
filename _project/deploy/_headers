@@ -1,0 +1,4 @@
+# Запрет индексации на уровне заголовка — действует и на PDF, и на картинки,
+# в отличие от <meta name="robots">, которую видно только в HTML.
+/*
+  X-Robots-Tag: noindex, nofollow, noarchive, nosnippet, noimageindex

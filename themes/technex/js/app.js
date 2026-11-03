@@ -453,6 +453,26 @@
         if (document.fonts && document.fonts.ready) {
           document.fonts.ready.then(function () { fit(); measurePin(); syncPin(); }).catch(function () {});
         }
+
+        // И ещё раз — когда страница догрузилась и когда изменилась ширина самой
+        // шапки. Без этого режим выбирался один раз, по замеру на недогруженной
+        // странице, и оставался неверным до первого ресайза окна: на 1190 шапка
+        // держалась однополосной, хотя содержимое в строку уже не влезало
+        // (нужно 1128 при доступных 1095), а стоило потянуть окно — вставала
+        // двухполосной. Отсюда и «промежуточные варианты»: один и тот же размер
+        // окна давал разную шапку в зависимости от того, когда её померили.
+        // ResizeObserver ловит и появление полосы прокрутки, и сдвиги раскладки
+        // от поздних картинок — это те самые 15–30 px, из-за которых замер
+        // «до» и «после» расходился.
+        window.addEventListener('load', function () { fit(); measurePin(); syncPin(); });
+        if (window.ResizeObserver) {
+          var lastWidth = menu.clientWidth;
+          new ResizeObserver(function () {
+            if (menu.clientWidth === lastWidth) return;
+            lastWidth = menu.clientWidth;
+            fit(); measurePin(); syncPin();
+          }).observe(menu);
+        }
       });
     }
   };

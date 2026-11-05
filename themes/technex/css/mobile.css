@@ -825,15 +825,22 @@ body:not(.is-mobile) .cats #block-technex-kategoriiglavnaya .block__content > di
    шапку от контента по-прежнему отделяет нижний бордер. */
 .mainmenu.is-pinned { box-shadow: none; }
 
-/* ── 8. Ховеры мессенджеров — фирменными цветами ───────────
-   Значок — цельный SVG (чёрный круг + белый глиф), перекрасить его
-   из CSS нельзя: маска убила бы глиф вместе с кругом. Поэтому рядом
-   лежат три копии, где у круга (`<path id="Oval">`) залит фирменный
-   цвет, остальное не тронуто. Глушим прежнее приглушение прозрачностью. */
-.header-messenger:hover { opacity: 1; }
-.header-messenger--telegram:hover { background-image: url("../img/fig-telegram-hover.svg"); }
-.header-messenger--whatsapp:hover { background-image: url("../img/fig-whatsapp-hover.svg"); }
-.header-messenger--viber:hover { background-image: url("../img/fig-viber-hover.svg"); }
+/* ── 8. Значки мессенджеров — фирменными цветами всегда ─────
+   Значок — цельный SVG (круг + белый глиф), перекрасить его из CSS
+   нельзя: маска убила бы глиф вместе с кругом. Поэтому рядом лежат
+   три копии, где у круга (`<path id="Oval">`) залит фирменный цвет:
+   телеграм #2AABEE, вотсап #25D366, вайбер #7360F2.
+   Было (03.11.2026): по умолчанию чёрные, цветные — только на ховере.
+   Браузер подтягивал цветную картинку в момент первого наведения, и
+   значок успевал мигнуть: пропадал и появлялся заново.
+   Стало (05.11.2026, решение заказчика): цветные всегда. Картинка одна
+   и грузится вместе со страницей, подменять на ховере нечего — мигать
+   нечему. На ховере остаётся лёгкое приглушение с переходом. */
+.header-messenger--telegram { background-image: url("../img/fig-telegram-hover.svg"); }
+.header-messenger--whatsapp { background-image: url("../img/fig-whatsapp-hover.svg"); }
+.header-messenger--viber { background-image: url("../img/fig-viber-hover.svg"); }
+.header-messenger { transition: opacity 0.15s ease; }
+.header-messenger:hover { opacity: 0.75; }
 
 
 /* ===========================================================

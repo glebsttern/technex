@@ -327,23 +327,55 @@
         var lastY = window.pageYOffset || 0;
         var ticking = false;
 
+        // Порог: полоса меняет состояние только после 32 px движения в одну
+        // сторону подряд. Было 4 px на каждое событие — на телефоне этого мало:
+        // при инерционной прокрутке Safari шлёт события с дрожанием в обе
+        // стороны, и полоса пряталась-появлялась-пряталась. Накопитель со
+        // сбросом при смене направления этот дребезг гасит: случайные 5–10 px
+        // назад порог не берут.
+        var SCROLL_STEP = 32;
+        var acc = 0;
+
+        function showContacts() {
+          menu.classList.remove('is-contacts-hidden');
+        }
+
         function onScroll() {
-          var y = window.pageYOffset || 0;
+          // На iOS прокрутка уезжает за края (резина): сверху pageYOffset
+          // отрицательный, снизу больше высоты документа. Такие значения дают
+          // ложные «движения» в обе стороны — зажимаем в реальные границы.
+          var max = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+          var y = Math.min(Math.max(window.pageYOffset || 0, 0), max);
           var twoRows = menu.classList.contains('is-mid') || menu.classList.contains('is-burger');
 
           if (!twoRows || document.body.classList.contains('is-menu-open')) {
-            menu.classList.remove('is-contacts-hidden');
+            showContacts();
             lastY = y;
+            acc = 0;
             return;
           }
           if (y <= ALWAYS_VISIBLE_UNTIL) {
-            menu.classList.remove('is-contacts-hidden');
-          } else if (y > lastY + 4) {
-            menu.classList.add('is-contacts-hidden');
-          } else if (y < lastY - 4) {
-            menu.classList.remove('is-contacts-hidden');
+            showContacts();
+            lastY = y;
+            acc = 0;
+            return;
           }
+
+          var d = y - lastY;
           lastY = y;
+          if (!d) return;
+
+          // смена направления — накопитель с нуля
+          if ((acc > 0) !== (d > 0)) acc = 0;
+          acc += d;
+
+          if (acc >= SCROLL_STEP) {
+            menu.classList.add('is-contacts-hidden');
+            acc = 0;
+          } else if (acc <= -SCROLL_STEP) {
+            showContacts();
+            acc = 0;
+          }
         }
 
         // Шапка держится у верха экрана на всей странице. Через position: sticky
@@ -404,7 +436,7 @@
                 menu.parentNode.classList.add('is-pinned-host');
               }
             }
-          } else if (menu.classList.contains('is-pinned')) {
+          } else if (y < pinTop - 4 && menu.classList.contains('is-pinned')) {
             menu.classList.remove('is-pinned');
             if (menu.parentNode && menu.parentNode.classList) {
               menu.parentNode.classList.remove('is-pinned-host');
